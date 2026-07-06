@@ -1,56 +1,43 @@
-<!DOCTYPE html>
+‸<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Public Notes</title>
     <style>
-        body { background: #000; color: #fff; font-family: 'Courier New', monospace; padding: 20px; }
+        body { background: #000; color: #fff; font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
         .box { border: 1px solid #fff; padding: 15px; margin: 10px 0; }
         input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; width: 100%; margin: 5px 0; box-sizing: border-box; }
-        .hidden { display: none; }
-        #canvas { height: 300px; overflow-y: scroll; border: 1px solid #fff; padding: 10px; }
-        .msg { margin-bottom: 5px; border-bottom: 1px solid #333; }
+        #canvas { height: 250px; border: 1px solid #fff; margin: 10px 0; overflow-y: scroll; padding: 10px; }
+        .msg { margin-bottom: 8px; border-bottom: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <!-- Экран входа -->
     <div id="auth-screen" class="box">
-        <h3>Жопа</h3>
-        <button onclick="showAuth('reg')">Регистрация</button>
-        <button onclick="showAuth('login')">Войти</button>
+        <h3>PUBLIC NOTES</h3>
+        <input type="text" id="login" placeholder="Логин">
+        <input type="password" id="pass" placeholder="Пароль">
+        <button onclick="login()">Войти / Регистрация</button>
     </div>
 
-    <div id="fields" class="hidden box">
-        <input type="text" id="user-login" placeholder="Логин (латиница и цифры)">
-        <input type="password" id="user-pass" placeholder="Пароль">
-        <button id="auth-btn" onclick="handleAuth()">ОК</button>
-        <button onclick="location.reload()">Back</button>
-    </div>
-
-    <!-- Основной экран -->
-    <div id="main-screen" class="hidden">
-        <div id="header">ID: <span id="my-id"></span></div>
+    <div id="main-ui" class="hidden box">
+        <div id="user-id-display" style="font-size: 0.8em; color: #888;"></div>
+        <div id="current-group">Группа: Общая</div>
         <div id="canvas"></div>
         <input type="text" id="msg-input" placeholder="Введите сообщение...">
         <button onclick="sendMessage()">Send</button>
-        <div class="box">
-            <button onclick="createGroup()">+ Создать группу</button>
-            <input type="text" id="search-input" placeholder="ID группы (16 симв)...">
-            <button onclick="findGroup()">Поиск</button>
-        </div>
+        
+        <button onclick="createGroup()">+ Создать группу</button>
+        <input type="text" id="group-id-input" placeholder="ID группы (16 симв)...">
+        <button onclick="joinGroup()">Поиск группы</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
-        // Ключи (разбиты для безопасности)
-        const p1 = "AIzaSyCfsFaXIiav";
-        const p2 = "E5KT7Sj6k_2Azbi4WDYo4QY";
-        
         const firebaseConfig = {
-            apiKey: p1 + p2,
+            apiKey: "AIzaSyCfsFaXIiav" + "E5KT7Sj6k_2Azbi4WDYo4QY",
             authDomain: "public-notes-8f5a8.firebaseapp.com",
             projectId: "public-notes-8f5a8",
             storageBucket: "public-notes-8f5a8.firebasestorage.app",
@@ -61,48 +48,63 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        
+        let currentGroup = "public"; // По умолчанию общая заметка
+        let userId = localStorage.getItem('my_uid') || (Math.random().toString(36).substring(2,6) + "-" + Math.random().toString(36).substring(2,6) + "-" + Math.random().toString(36).substring(2,6)).toUpperCase();
+        localStorage.setItem('my_uid', userId);
+        document.getElementById('user-id-display').innerText = "ID: " + userId;
 
-        // Генерация ID пользователя (12 символов)
-        let userId = localStorage.getItem('my_id') || 
-            (Math.random().toString(36).substring(2,6) + "-" + Math.random().toString(36).substring(2,6) + "-" + Math.random().toString(36).substring(2,6)).toUpperCase();
-        localStorage.setItem('my_id', userId);
-        document.getElementById('my-id').innerText = userId;
-
-        window.showAuth = (type) => {
+        window.login = () => {
             document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('fields').classList.remove('hidden');
+            document.getElementById('main-ui').classList.remove('hidden');
         };
 
-        window.handleAuth = () => {
-            // Здесь будет логика проверки логина/пароля в Firebase
-            document.getElementById('fields').classList.add('hidden');
-            document.getElementById('main-screen').classList.remove('hidden');
+        window.createGroup = () => {
+            // Генерация 16-символьного ID (XXXX-XXXX-XXXX-XXXX)
+            const s = () => Math.random().toString(36).substring(2,6).toUpperCase();
+            const gid = `${s()}-${s()}-${s()}-${s()}`;
+            alert("Группа создана! ID: " + gid);
+            currentGroup = gid;
+            document.getElementById('current-group').innerText = "Группа: " + gid;
+            loadMessages();
+        };
+
+        window.joinGroup = () => {
+            const gid = document.getElementById('group-id-input').value;
+            if(gid.length < 16) return alert("Неверный ID");
+            currentGroup = gid;
+            document.getElementById('current-group').innerText = "Группа: " + gid;
+            loadMessages();
         };
 
         window.sendMessage = async () => {
             const input = document.getElementById('msg-input');
             if (!input.value) return;
-            await addDoc(collection(db, "messages"), {
-                text: input.value,
+            await addDoc(collection(db, "messages"), { 
+                text: input.value, 
                 sender: userId,
-                timestamp: serverTimestamp()
+                groupId: currentGroup,
+                timestamp: new Date() 
             });
             input.value = '';
         };
 
-        // Слушаем общую заметку
-        const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
-        onSnapshot(q, (snapshot) => {
-            const canvas = document.getElementById('canvas');
-            canvas.innerHTML = ''; 
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const div = document.createElement('div');
-                div.className = 'msg';
-                div.textContent = `id${data.sender}: ${data.text}`;
-                canvas.appendChild(div);
+        function loadMessages() {
+            const q = query(collection(db, "messages"), where("groupId", "==", currentGroup), orderBy("timestamp", "asc"));
+            onSnapshot(q, (snapshot) => {
+                const canvas = document.getElementById('canvas');
+                canvas.innerHTML = ''; 
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const div = document.createElement('div');
+                    div.className = 'msg';
+                    div.textContent = `id${data.sender}: ${data.text}`;
+                    canvas.appendChild(div);
+                });
             });
-        });
+        }
+
+        loadMessages(); // Загрузить при старте
     </script>
 </body>
 </html>
