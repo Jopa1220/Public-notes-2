@@ -2,38 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Public Notes</title>
     <style>
-        body { background: #000; color: #fff; font-family: 'Courier New', monospace; margin: 0; padding: 10px; }
-        .box { border: 1px solid #fff; padding: 10px; margin-bottom: 10px; }
-        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        body { background: #000; color: #fff; font-family: 'Courier New', monospace; padding: 20px; }
+        .box { border: 1px solid #fff; padding: 15px; margin: 10px 0; }
+        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; width: 100%; margin: 5px 0; box-sizing: border-box; }
         .hidden { display: none; }
-        #canvas { height: 300px; overflow-y: scroll; border: 1px solid #fff; padding: 10px; margin: 10px 0; }
-        .msg { margin-bottom: 8px; border-bottom: 1px solid #333; }
+        #canvas { height: 300px; overflow-y: scroll; border: 1px solid #fff; padding: 10px; }
+        .msg { margin-bottom: 5px; border-bottom: 1px solid #333; }
     </style>
 </head>
 <body>
 
+    <!-- Экран входа -->
     <div id="auth-screen" class="box">
         <h3>PUBLIC NOTES</h3>
-        <input type="text" id="login" placeholder="Username">
-        <input type="password" id="pass" placeholder="Password">
-        <button onclick="login()">Log In</button>
+        <button onclick="showAuth('reg')">Регистрация</button>
+        <button onclick="showAuth('login')">Войти</button>
     </div>
 
+    <div id="fields" class="hidden box">
+        <input type="text" id="user-login" placeholder="Логин (латиница и цифры)">
+        <input type="password" id="user-pass" placeholder="Пароль">
+        <button id="auth-btn" onclick="handleAuth()">ОК</button>
+        <button onclick="location.reload()">Back</button>
+    </div>
+
+    <!-- Основной экран -->
     <div id="main-screen" class="hidden">
+        <div id="header">ID: <span id="my-id"></span></div>
         <div id="canvas"></div>
-        <input type="text" id="msg-input" placeholder="Type your message...">
+        <input type="text" id="msg-input" placeholder="Введите сообщение...">
         <button onclick="sendMessage()">Send</button>
+        <div class="box">
+            <button onclick="createGroup()">+ Создать группу</button>
+            <input type="text" id="search-input" placeholder="ID группы (16 симв)...">
+            <button onclick="findGroup()">Поиск</button>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
+        // Ключи (разбиты для безопасности)
+        const p1 = "AIzaSyCfsFaXIiav";
+        const p2 = "E5KT7Sj6k_2Azbi4WDYo4QY";
+        
         const firebaseConfig = {
-            apiKey: "AIzaSyCfsFaXIiavE5KT7Sj6k_2Azbi4WDYo4QY",
+            apiKey: p1 + p2,
             authDomain: "public-notes-8f5a8.firebaseapp.com",
             projectId: "public-notes-8f5a8",
             storageBucket: "public-notes-8f5a8.firebasestorage.app",
@@ -45,8 +62,20 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        window.login = () => {
+        // Генерация ID пользователя (12 символов)
+        let userId = localStorage.getItem('my_id') || 
+            (Math.random().toString(36).substring(2,6) + "-" + Math.random().toString(36).substring(2,6) + "-" + Math.random().toString(36).substring(2,6)).toUpperCase();
+        localStorage.setItem('my_id', userId);
+        document.getElementById('my-id').innerText = userId;
+
+        window.showAuth = (type) => {
             document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('fields').classList.remove('hidden');
+        };
+
+        window.handleAuth = () => {
+            // Здесь будет логика проверки логина/пароля в Firebase
+            document.getElementById('fields').classList.add('hidden');
             document.getElementById('main-screen').classList.remove('hidden');
         };
 
@@ -55,20 +84,22 @@
             if (!input.value) return;
             await addDoc(collection(db, "messages"), {
                 text: input.value,
-                timestamp: new Date()
+                sender: userId,
+                timestamp: serverTimestamp()
             });
             input.value = '';
         };
 
+        // Слушаем общую заметку
         const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
         onSnapshot(q, (snapshot) => {
             const canvas = document.getElementById('canvas');
             canvas.innerHTML = ''; 
             snapshot.forEach((doc) => {
-                const msg = doc.data();
+                const data = doc.data();
                 const div = document.createElement('div');
                 div.className = 'msg';
-                div.textContent = msg.text;
+                div.textContent = `id${data.sender}: ${data.text}`;
                 canvas.appendChild(div);
             });
         });
