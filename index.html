@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Notes</title>
+    <style>
+        body { background: #000; color: #fff; font-family: 'Courier New', monospace; margin: 0; padding: 10px; }
+        .box { border: 1px solid #fff; padding: 10px; margin-bottom: 10px; }
+        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        .hidden { display: none; }
+        #canvas { height: 300px; overflow-y: scroll; border: 1px solid #fff; padding: 10px; margin: 10px 0; }
+        .msg { margin-bottom: 8px; border-bottom: 1px solid #333; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen" class="box">
+        <h3>PUBLIC NOTES</h3>
+        <input type="text" id="login" placeholder="Username (Latin and numbers)">
+        <input type="password" id="pass" placeholder="Password">
+        <button onclick="login()">Log In</button>
+        <button onclick="login()">Register</button>
+    </div>
+
+    <!-- MAIN SCREEN -->
+    <div id="main-screen" class="hidden">
+        <div class="top-bar">
+            <span>Public Note</span>
+            <div>
+                <button style="width: auto;" onclick="alert('Search group note')">🔍</button>
+                <button style="width: auto;" onclick="createGroup()">+</button>
+            </div>
+        </div>
+        
+        <div id="canvas"></div>
+        
+        <input type="text" id="msg-input" placeholder="Type your message...">
+        <button onclick="send()">Send</button>
+        <p id="uid-display" style="font-size: 10px;"></p>
+    </div>
+
+    <script>
+        // Generate persistent User ID
+        let uid = localStorage.getItem('user_id');
+        if (!uid) {
+            const s = () => Math.floor(1000 + Math.random() * 9000);
+            uid = `${s()}-${s()}-${s()}`;
+            localStorage.setItem('user_id', uid);
+        }
+
+        function login() {
+            if(document.getElementById('login').value && document.getElementById('pass').value) {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('main-screen').classList.remove('hidden');
+                document.getElementById('uid-display').innerText = "Your ID: " + uid;
+            } else {
+                alert("Please enter your credentials!");
+            }
+        }
+
+        function createGroup() {
+            let ids = prompt("Enter user IDs separated by commas (Format: XXXX-XXXX-XXXX):");
+            if(ids) alert("Group note created for: " + ids);
+        }
+
+        function send() {
+            let input = document.getElementById('msg-input');
+            if(!input.value) return;
+            
+            let div = document.createElement('div');
+            div.className = 'msg';
+            div.innerHTML = `<strong>id${uid}:</strong> ${input.value}`;
+            document.getElementById('canvas').appendChild(div);
+            input.value = '';
+        }
+    </script>
+</body>
+</html>
